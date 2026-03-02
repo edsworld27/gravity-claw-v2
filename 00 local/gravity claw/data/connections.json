@@ -1,0 +1,128 @@
+[
+  {
+    "id": "openai",
+    "name": "OpenAI",
+    "status": "Active",
+    "type": "LLM Provider",
+    "provider": "openai"
+  },
+  {
+    "id": "anthropic",
+    "name": "Anthropic",
+    "status": "Active",
+    "type": "LLM Provider",
+    "provider": "anthropic"
+  },
+  {
+    "id": "openrouter",
+    "name": "OpenRouter",
+    "status": "Active",
+    "type": "LLM Provider",
+    "provider": "openrouter"
+  },
+  {
+    "id": "ollama",
+    "name": "Ollama (Local)",
+    "status": "Active",
+    "type": "LLM Provider",
+    "provider": "ollama"
+  },
+  {
+    "id": "elevenlabs",
+    "name": "ElevenLabs",
+    "status": "Active",
+    "type": "TTS API",
+    "tools": [
+      "generate_speech"
+    ]
+  },
+  {
+    "id": "discord",
+    "name": "Discord",
+    "status": "Active",
+    "type": "Communication",
+    "platform": "discord"
+  },
+  {
+    "id": "slack",
+    "name": "Slack",
+    "status": "Active",
+    "type": "Communication",
+    "platform": "slack"
+  },
+  {
+    "id": "whatsapp",
+    "name": "WhatsApp",
+    "status": "Active",
+    "type": "Communication",
+    "platform": "whatsapp"
+  },
+  {
+    "id": "telegram",
+    "name": "Telegram",
+    "status": "Active",
+    "type": "Communication",
+    "platform": "telegram"
+  },
+  {
+    "id": "gmail",
+    "name": "Gmail",
+    "status": "Active",
+    "type": "Productivity",
+    "tools": [
+      "gmail_send",
+      "gmail_read",
+      "gmail_list"
+    ]
+  },
+  {
+    "id": "calendar",
+    "name": "Google Calendar",
+    "status": "Active",
+    "type": "Productivity",
+    "tools": [
+      "calendar_list",
+      "calendar_create"
+    ]
+  },
+  {
+    "id": "spotify",
+    "name": "Spotify",
+    "status": "Active",
+    "type": "Productivity",
+    "tools": [
+      "spotify_search_play",
+      "spotify_pause",
+      "spotify_current_track"
+    ]
+  },
+  {
+    "id": "weather",
+    "name": "OpenWeatherMap",
+    "status": "Active",
+    "type": "Environment",
+    "tools": [
+      "weather_get"
+    ]
+  },
+  {
+    "id": "news",
+    "name": "NewsAPI",
+    "status": "Active",
+    "type": "Environment",
+    "tools": [
+      "news_search",
+      "news_get_top"
+    ]
+  },
+  {
+    "id": "homeassistant",
+    "name": "Home Assistant",
+    "status": "Active",
+    "type": "Environment",
+    "tools": [
+      "ha_list_entities",
+      "ha_control_device"
+    ]
+  }
+]

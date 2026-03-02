@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Claw | WebChat</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --text: #f1f5f9;
+            --accent: #38bdf8;
+            --user-msg: #334155;
+            --bot-msg: #0f172a;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            padding: 1rem 2rem;
+            background: var(--panel);
+            border-bottom: 1px solid #334155;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 1rem;
+            border-radius: 12px;
+            line-height: 1.5;
+            position: relative;
+        }
+
+        .user {
+            align-self: flex-end;
+            background-color: var(--user-msg);
+            border-bottom-right-radius: 2px;
+        }
+
+        .bot {
+            align-self: flex-start;
+            background-color: var(--panel);
+            border: 1px solid #334155;
+            border-bottom-left-radius: 2px;
+        }
+
+        .bot pre {
+            background: #000;
+            padding: 0.5rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        #typing-indicator {
+            padding: 0.5rem 2rem;
+            font-size: 0.85rem;
+            color: var(--accent);
+            height: 1.2rem;
+            visibility: hidden;
+        }
+
+        footer {
+            padding: 1.5rem 2rem;
+            background: var(--panel);
+            border-top: 1px solid #334155;
+        }
+
+        .input-wrapper {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            gap: 1rem;
+        }
+
+        input {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid #334155;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+        }
+
+        button {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+    </style>
+    <link rel="manifest" href="/manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</head>
+
+<body>
+    <header>
+        <div style="font-weight: 800; font-size: 1.2rem; color: var(--accent);">GRAVITY CLAW</div>
+        <div id="status" style="font-size: 0.8rem; color: #64748b;">Connecting...</div>
+    </header>
+
+    <div id="chat-container"></div>
+    <div id="typing-indicator">Gravity Claw is thinking...</div>
+
+    <div id="canvas-overlay"
+        style="display:none; position:fixed; right:0; top:0; width:30%; height:100%; background:#111; border-left:1px solid #333; padding:20px; z-index:1000; overflow-y:auto;">
+        <h3 style="color:var(--accent)">🎨 Live Canvas</h3>
+        <div id="canvas-content" style="margin-top:20px;"></div>
+        <button onclick="document.getElementById('canvas-overlay').style.display='none'"
+            style="margin-top:20px; background:#444; color:white; border:none; padding:5px 10px; cursor:pointer;">Close</button>
+    </div>
+
+    <footer>
+        <div id="voice-controls" style="margin-bottom: 0.5rem; display: flex; gap: 0.5rem; justify-content: center;">
+            <button id="voice-toggle" style="background: #334155; color: white;">🎤 Enable Voice Mode</button>
+        </div>
+        <form id="chat-form" class="input-wrapper">
+            <input type="text" id="user-input" placeholder="Type a message..." autocomplete="off">
+            <button type="submit">Send</button>
+        </form>
+    </footer>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const status = document.getElementById('status');
+        const typing = document.getElementById('typing-indicator');
+        const voiceToggle = document.getElementById('voice-toggle');
+        const canvasOverlay = document.getElementById('canvas-overlay');
+        const canvasContent = document.getElementById('canvas-content');
+
+        let isVoiceMode = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        // Connect to WebSocket on the same host but using ws://
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socket = new WebSocket(`${protocol}//${window.location.host}`);
+
+        socket.onopen = () => {
+            status.innerText = 'Online';
+            status.style.color = '#10b981';
+        };
+
+        socket.onclose = () => {
+            status.innerText = 'Disconnected';
+            status.style.color = '#ef4444';
+        };
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === 'typing') {
+                typing.style.visibility = data.isTyping ? 'visible' : 'hidden';
+            } else if (data.type === 'message') {
+                typing.style.visibility = 'hidden';
+                addMessage(data.content, 'bot');
+            } else if (data.type === 'audio') {
+                playAudio(data.content);
+            }
+        };
+
+        chatForm.onsubmit = (e) => {
+            e.preventDefault();
+            const text = userInput.value.trim();
+            if (!text || socket.readyState !== WebSocket.OPEN) return;
+
+            addMessage(text, 'user');
+            socket.send(JSON.stringify({ type: 'message', content: text, voiceMode: isVoiceMode }));
+            userInput.value = '';
+        };
+
+        voiceToggle.onclick = async () => {
+            if (!isVoiceMode) {
+                await enableVoiceMode();
+            } else {
+                disableVoiceMode();
+            }
+        };
+
+        async function enableVoiceMode() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                startRecording(stream);
+                isVoiceMode = true;
+                voiceToggle.innerText = '🛑 Stop Voice Mode';
+                voiceToggle.style.background = '#ef4444';
+            } catch (err) {
+                alert('Could not access microphone: ' + err.message);
+            }
+        }
+
+        function disableVoiceMode() {
+            stopRecording();
+            isVoiceMode = false;
+            voiceToggle.innerText = '🎤 Enable Voice Mode';
+            voiceToggle.style.background = '#334155';
+        }
+
+        // --- WAKE WORD DETECTION (Browser Only) ---
+        if ('webkitSpeechRecognition' in window) {
+            const recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    const transcript = event.results[i][0].transcript.toLowerCase();
+                    if (transcript.includes('hey claw') || transcript.includes('hello claw')) {
+                        if (!isVoiceMode) {
+                            console.log('[WakeWord] Triggered!');
+                            enableVoiceMode();
+                        }
+                    }
+                }
+            };
+
+            recognition.onend = () => { if (!isVoiceMode) recognition.start(); };
+            recognition.start();
+            console.log('[WakeWord] Listening for "Hey Claw"...');
+        }
+
+        function startRecording(stream) {
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                audioChunks = [];
+
+                // Convert to base64 to send via JSON socket (or use binary)
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = () => {
+                    const base64data = reader.result.split(',')[1];
+                    socket.send(JSON.stringify({ type: 'voice', content: base64data }));
+                };
+            };
+            // For real-time "Push to Talk" style or silence detection, 
+            // we'd slice here. For now, we'll just send bits on stop or every 3s.
+            mediaRecorder.start();
+
+            // Auto-send every 4 seconds if talking
+            setInterval(() => {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                    mediaRecorder.start();
+                }
+            }, 4000);
+        }
+
+        function stopRecording() {
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+        }
+
+        function playAudio(base64) {
+            const audio = new Audio('data:audio/mp3;base64,' + base64);
+            audio.play();
+        }
+
+        function addMessage(text, side) {
+            const div = document.createElement('div');
+            div.className = `message ${side}`;
+
+            if (side === 'bot') {
+                div.innerHTML = marked.parse(text);
+                // Feature 57: Trigger Canvas if payload detected
+                if (text.includes('```canvas')) {
+                    const match = text.match(/```canvas\n([\s\S]*?)\n```/);
+                    if (match) renderCanvas(match[1]);
+                }
+            } else {
+                div.innerText = text;
+            }
+
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function renderCanvas(dataStr) {
+            try {
+                const data = JSON.parse(dataStr);
+                canvasOverlay.style.display = 'block';
+                if (data.type === 'list') {
+                    canvasContent.innerHTML = `<ul style="list-style:none; padding:0;">${data.items.map(i => `<li style="padding:10px; border-bottom:1px solid #333">${i}</li>`).join('')}</ul>`;
+                } else if (data.type === 'chart') {
+                    canvasContent.innerHTML = `<div style="height:200px; background:#222; border-radius:8px; display:flex; align-items:flex-end; gap:5px; padding:10px;">
+                        ${data.values.map(v => `<div style="flex:1; background:var(--accent); height:${v}%"></div>`).join('')}
+                    </div><p style="text-align:center; margin-top:10px;">${data.label}</p>`;
+                } else {
+                    canvasContent.innerHTML = `<pre style="color:#0f0">${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (e) {
+                console.error('Canvas parse error:', e);
+            }
+        }
+    </script>
+</body>
+
+</html>

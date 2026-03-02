@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+proxy/node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+proxy/.env.real
+
+# Security-sensitive files (NEVER commit these)
+data/.agent-secret
+data/agent-keys.json
+data/proxy-audit.log
+data/security-audit.log
+
+# Build outputs
+dist/
+*.js.map
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Database files (local SQLite)
+*.db
+*.sqlite
+
+# WhatsApp session data
+auth_info*/
+
+# Temporary files
+*.tmp
+*.temp
